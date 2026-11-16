@@ -1,6 +1,6 @@
 import pandas as pd
 import argparse
-import json
+#import json
 import numpy as np
 import os
 #lloading ratings
@@ -8,16 +8,16 @@ import os
 def build_arg_parser():
     parser = argparse.ArgumentParser(
         description= 'Compute Similarity Score')
-    parser.add_argument('--user1', dest= 'user1',
+    parser.add_argument('--user1', dest= 'user1', type=int,
                        required= True, help= 'First User')
-    parser.add_argument('--user2', dest= 'user2',
+    parser.add_argument('--user2', dest= 'user2', type=int,
                        required= True, help= 'Second User')
     parser.add_argument('--score-type', dest= 'score_type',
                        required= True, 
                        choices=['Euclidean','Pearson'],
                        help= 'similarity metric to use')
     return parser 
-#14/10/2025 & 15/10/2025
+
 # To calculate the similarity score between users
 
 # compute the Euclidean distance score between user1 and user2
@@ -55,7 +55,7 @@ def euclidean_score(data, user1, user2):
 
 # compute the Pearson correlation score between user1  and user2
 
-def pearson_score(data, user1, user2):
+def pearson_score(data, user1, user2, min_common=10):
     if user1 not in data.userID.values:
         raise TypeError('Cannot find ' + str(user1) + ' in the data')
     if user2 not in data.userID.values:
@@ -73,7 +73,9 @@ def pearson_score(data, user1, user2):
     num_ratings = len(common_movies)
 
 # if there are no common movies between user1 and user2, then the score is 0
-    if num_ratings == 0:
+      # Too few shared movies makes a correlation of 1.0 happen by chance,
+    # so such pairs are treated as having no reliable similarity.
+    if num_ratings < min_common:
         return 0
 
 # calculate the sum of ratings of all the common movies 
@@ -107,34 +109,28 @@ def pearson_score(data, user1, user2):
     
 # Define the main function and parse the input arquments
 
-if __name__=='__main__':
+if __name__ == '__main__':
     args = build_arg_parser().parse_args()
     user1 = args.user1
     user2 = args.user2
     score_type = args.score_type
-  
-    ratings = pd.read_csv(os.path.abspath("movie-recommender-app\\u.data"),
-                    sep= '\t',
-                    names= ['userID', 'movieID', 'rating', 'timestamp'])
 
- #Loading movie info
-    movies = pd.read_csv(os.path.abspath("movie-recommender-app\\u.item"),
-                    sep= '|',
-                    encoding = 'latin-1',
-                    usecols= [0,1],
-                    names= ['movieID', 'title'])
+    # Plain filenames work as long as the data files sit in the same folder as this script
+    ratings = pd.read_csv("u.data",
+                          sep='\t',
+                          names=['userID', 'movieID', 'rating', 'timestamp'])
 
-# Merging
-    data = pd.merge(ratings, movies, on= 'movieID')
+    # Loading movie info; latin-1 is needed for accented characters in titles
+    movies = pd.read_csv("u.item",
+                         sep='|',
+                         encoding='latin-1',
+                         usecols=[0, 1],
+                         names=['movieID', 'title'])
 
-    # OLd Version using json
-# loading the ratings from the file ratings.json into a dictionary:
-   # ratings_file = 'ratings.json'
-    
-   # with open(ratings_file, 'r') as f:
-    #    data = json.loads(f.load())
-        
-# compute the similarity score based on the input arguments
+    # Merging
+    data = pd.merge(ratings, movies, on='movieID')
+
+    # Compute the similarity score based on the input arguments
     if score_type == 'Euclidean':
         print("\nEuclidean score:")
         print(euclidean_score(data, user1, user2))
